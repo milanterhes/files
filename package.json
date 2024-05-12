@@ -14,6 +14,10 @@
     "@radix-ui/react-slot": "^1.0.2",
     "@supabase/ssr": "^0.3.0",
     "@supabase/supabase-js": "^2.43.1",
+    "@trigger.dev/nextjs": "^2.3.18",
+    "@trigger.dev/react": "^2.3.18",
+    "@trigger.dev/sdk": "^2.3.18",
+    "@trigger.dev/supabase": "^2.3.18",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.378.0",
@@ -32,7 +36,11 @@
     "eslint": "^8",
     "eslint-config-next": "14.2.3",
     "postcss": "^8",
+    "supabase": "^1.165.0",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
+  },
+  "trigger.dev": {
+    "endpointId": "naturechill-YoN6"
   }
 }
