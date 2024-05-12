@@ -1,5 +1,7 @@
+import ProductTable from "@/components/ProductTable";
 import { UploadForm } from "@/components/UploadForm";
 import { Button } from "@/components/ui/button";
+import prisma from "@/utils/db";
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 
@@ -12,7 +14,10 @@ export default async function Home() {
     offset: 0,
     sortBy: { column: "name", order: "asc" },
   });
-  console.log({ files });
+  const products = await prisma.product.findMany({
+    take: 5,
+  });
+  const total = await prisma.product.count();
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-24">
       <div className="flex flex-col w-full gap-6 items-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
@@ -26,6 +31,7 @@ export default async function Home() {
         <p>Files in bucket: {files.data?.length}</p>
         {data.user?.email && <UploadForm />}
       </div>
+      <ProductTable products={products} total={total} />
     </main>
   );
 }
