@@ -114,7 +114,7 @@ client.defineJob({
       `Parsed products #${products.length}, ${JSON.stringify(products[0])}`
     );
 
-    const chunks = sliceIntoChunks(products, 250);
+    const chunks = sliceIntoChunks(products, 4500);
     let idx = 0;
 
     for (const chunk of chunks) {
@@ -148,6 +148,6 @@ client.defineJob({
       idx++;
     }
 
-    await io.logger.info(`Updated products: ${idx}}`);
+    await io.logger.info(`Updated products: ${idx}`);
   },
 });
