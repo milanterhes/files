@@ -4,17 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/utils/supabase/client";
 import { Label } from "@radix-ui/react-label";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 export function UploadForm() {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = createClient();
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (file) {
+    if (
+      file &&
+      file.type ===
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ) {
       const { data, error } = await supabase.storage
         .from("excel-files")
         .upload(`private/${name}`, file, {
@@ -29,6 +34,21 @@ export function UploadForm() {
       console.log({ data, error });
     }
   }
+
+  useEffect(() => {
+    if (
+      file &&
+      file.type !==
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ) {
+      fileInputRef.current?.setCustomValidity(
+        "Please upload an excel file (.xlsx)"
+      );
+      fileInputRef.current?.reportValidity();
+    } else {
+      fileInputRef.current?.setCustomValidity("");
+    }
+  }, [file]);
 
   return (
     <div className="flex flex-col">
@@ -50,6 +70,7 @@ export function UploadForm() {
           <Input
             type="file"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            ref={fileInputRef}
           />
           <p className="text-sm text-muted-foreground">The excel file.</p>
         </div>

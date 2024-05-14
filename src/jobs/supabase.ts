@@ -4,6 +4,7 @@ import { Supabase, SupabaseManagement } from "@trigger.dev/supabase";
 import { z } from "zod";
 import xlsx from "node-xlsx";
 import prisma from "@/utils/db";
+import { Prisma } from "@prisma/client";
 
 const supabase = new Supabase({
   id: "supabase",
@@ -21,16 +22,16 @@ const db = supabaseManagement.db<Database>(
 
 const ProductSchema = z
   .tuple([
-    z.string().optional(),
-    z.string().optional(),
-    z.number().optional(),
-    z.number().optional(),
-    z.number().optional(),
-    z.string().optional(),
-    z.number().optional(),
-    z.string().optional(),
-    z.number().optional(),
-    z.string().optional(),
+    z.string(),
+    z.string(),
+    z.number(),
+    z.number(),
+    z.number(),
+    z.string(),
+    z.number(),
+    z.string(),
+    z.number(),
+    z.string(),
   ])
   .transform((obj) => ({
     productId: obj[0],
@@ -47,7 +48,7 @@ const ProductSchema = z
 
 type Product = z.infer<typeof ProductSchema>;
 
-function sliceIntoChunks(arr: Array<Product | null>, chunkSize: number) {
+function sliceIntoChunks(arr: Array<Product>, chunkSize: number) {
   const res = [];
   for (let i = 0; i < arr.length; i += chunkSize) {
     const chunk = arr.slice(i, i + chunkSize);
@@ -55,6 +56,15 @@ function sliceIntoChunks(arr: Array<Product | null>, chunkSize: number) {
   }
   return res;
 }
+
+function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
+  return value !== null && value !== undefined;
+}
+
+// creates a line for the VALUES part of the query
+const productToValueLine = (product: Product) => {
+  return `( '${product.productId}', '${product.productName}', ${product.listedPrice}, ${product.discount}, ${product.nettoPrice}, '${product.currency}', ${product.packageSize}, '${product.unit}', ${product.unitPrice}, '${product.unitName}' )`;
+};
 
 client.defineJob({
   id: "excel-parser",
@@ -85,7 +95,7 @@ client.defineJob({
     }
     await io.logger.info(`File downloaded, size: ${fileData.size}`);
 
-    const result = await io.runTask(`parse-file-${fileName}`, async () => {
+    const products = await io.runTask(`parse-file-${fileName}`, async () => {
       const workSheetsFromFile = xlsx.parse(await fileData.arrayBuffer());
       const rows = workSheetsFromFile[0].data.slice(1);
       return rows
@@ -97,39 +107,47 @@ client.defineJob({
             return parsed.data;
           }
         })
-        .filter((x) => x !== null);
+        .filter(notEmpty);
     });
 
     await io.logger.info(
-      `Parse result #${result.length}, ${JSON.stringify(result[0])}`
+      `Parsed products #${products.length}, ${JSON.stringify(products[0])}`
     );
 
-    const chunks = sliceIntoChunks(result, 250);
-    const updates = [];
+    const chunks = sliceIntoChunks(products, 250);
     let idx = 0;
 
     for (const chunk of chunks) {
       const newUpdates = await io.runTask(`chunk-${idx}`, async () => {
-        const promises = chunk.map((newProduct) =>
-          prisma.product.upsert({
-            where: {
-              productId: newProduct!.productId, // TODO: fix "!"
-            },
-            create: {
-              ...newProduct,
-            },
-            update: {
-              ...newProduct,
-            },
-          })
-        );
-        const updateResult = await prisma.$transaction(promises);
-        return updateResult;
+        const values = chunk.map(productToValueLine).join(",\n");
+
+        const query = `
+          WITH new_data ("productId", "productName", "listedPrice", "discount", "nettoPrice", "currency", "packageSize", "unit", "unitPrice", "unitName") AS (
+            VALUES
+                ${values}
+          )
+          INSERT INTO public.products ("productId", "productName", "listedPrice", "discount", "nettoPrice", "currency", "packageSize", "unit", "unitPrice", "unitName")
+          SELECT "productId", "productName", "listedPrice", "discount", "nettoPrice", "currency", "packageSize", "unit", "unitPrice", "unitName"
+          FROM new_data
+          ON CONFLICT ("productId")
+          DO UPDATE SET
+              "productName" = EXCLUDED."productName",
+              "listedPrice" = EXCLUDED."listedPrice",
+              "discount" = EXCLUDED."discount",
+              "nettoPrice" = EXCLUDED."nettoPrice",
+              "currency" = EXCLUDED."currency",
+              "packageSize" = EXCLUDED."packageSize",
+              "unit" = EXCLUDED."unit",
+              "unitPrice" = EXCLUDED."unitPrice",
+              "unitName" = EXCLUDED."unitName";
+        `;
+        await io.logger.info(`Running query: ${query}`);
+
+        await prisma.$executeRaw`${Prisma.raw(query)}`;
       });
-      updates.push(...newUpdates);
       idx++;
     }
 
-    await io.logger.info(`Updated products: ${JSON.stringify(updates.length)}`);
+    await io.logger.info(`Updated products: ${idx}}`);
   },
 });
