@@ -8,9 +8,9 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-between p-24">
       <form className="flex flex-col gap-12">
         <div className="grid gap-2 text-center">
-          <h1 className="text-3xl font-bold">Login</h1>
+          <h1 className="text-3xl font-bold">Webcatalogue Login</h1>
           <p className="text-balance text-muted-foreground">
-            Enter your email below to login to your account
+            Enter your given credentials below
           </p>
         </div>
         <div className="grid gap-4">
@@ -20,7 +20,6 @@ export default function Home() {
               id="email"
               type="email"
               name="email"
-              placeholder="m@example.com"
               required
             />
           </div>
@@ -34,6 +33,7 @@ export default function Home() {
                 Forgot your password?
               </Link>
             </div> */}
+            <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" name="password" required />
           </div>
           <Button type="submit" className="w-full" formAction={login}>
